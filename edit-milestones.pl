@@ -1,6 +1,14 @@
 #!/usr/bin/env perl
 use 5.28.0;
 use experimental 'signatures';
+use File::Basename qw(dirname);
+use Cwd qw(realpath);
+use File::Spec::Functions qw(catdir);
+BEGIN {
+  require lib;
+  lib->import(catdir(dirname(realpath(__FILE__)), 'local', 'lib', 'perl5'));
+}
+
 use Mojo::UserAgent;
 use Mojo::File qw(path);
 use Mojo::JSON qw(decode_json);

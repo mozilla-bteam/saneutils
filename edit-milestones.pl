@@ -47,12 +47,7 @@ if (1) {
   my @milestones = get_milestones($ua, $urlbase, $product)->@*;
   my $id         = 0;
   my @unedited   = map {
-    join(" ",
-      sprintf("%.4x", $id++),
-      $_->{active} ? '[x]' : '[_]',
-      $_->{bugs},
-      $_->{value}
-    )
+    join(" ", sprintf("%.4x", $id++), $_->{active} ? '[x]' : '[_]', $_->{bugs}, $_->{value})
   } @milestones;
   my @edited = Proc::InvokeEditor->edit(\@unedited, '.txt');
 
@@ -63,7 +58,7 @@ if (1) {
 
   warn "nothing to delete\n" unless @to_delete;
   {
-    my $max = @to_delete;
+    my $max      = @to_delete;
     my $progress = Term::ProgressBar->new(
       {name => 'Delete', count => $max, remove => 1, ETA => 'linear'});
     my $next_update = 0;
@@ -82,9 +77,9 @@ if (1) {
   my %checkbox_to_bool = ('[x]' => 1, '[_]' => 0);
   foreach my $edit (@edited) {
     my ($id, $checkbox, $bugs, $value) = split(/\s+/, $edit, 4);
-    my $active = $checkbox_to_bool{$checkbox};
-    my $milestone = $milestones[ hex($id) ];
-    die "No milestone with id $id" unless defined $milestone;
+    my $active    = $checkbox_to_bool{$checkbox};
+    my $milestone = $milestones[hex($id)];
+    die "No milestone with id $id"          unless defined $milestone;
     die "invalid checkbox value: $checkbox" unless defined $active;
 
     my %update;
@@ -125,9 +120,9 @@ sub edit_milestone ($ua, $url, $update) {
   check_title($dom, qq{Edit Milestone '$milestone' of product '$product'});
 
   my $form = $dom->at('form[action*="/editmilestones.cgi"]') or die "cannot find form";
-  my %input = ( extract_inputs($form->find('input'))->@*, %$update );
+  my %input = (extract_inputs($form->find('input'))->@*, %$update);
 
-  my $action = html_attr_unescape $form->attr('action');
+  my $action   = html_attr_unescape $form->attr('action');
   my $form_url = $url->clone;
   $form_url->path($action);
   $form_url->query(Mojo::Parameters->new);

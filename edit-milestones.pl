@@ -10,11 +10,11 @@ use List::Util qw(all);
 use Proc::InvokeEditor;
 use Set::Object qw(set);
 
-my $ua     = Mojo::UserAgent->new();
-my $file   = path("config.json");
-my $config = decode_json($file->slurp);
+my $ua      = Mojo::UserAgent->new();
+my $file    = path("config.json");
+my $config  = decode_json($file->slurp);
 my $urlbase = Mojo::URL->new($config->{urlbase});
-my $cookies = $config->{cookies}{ $urlbase->host };
+my $cookies = $config->{cookies}{$urlbase->host};
 
 $ua->cookie_jar->ignore(sub {0});
 $ua->cookie_jar->add(
@@ -34,26 +34,26 @@ $ua->cookie_jar->add(
 getopt 'product=s' => \my $product;
 
 if (1) {
-my @milestones = get_milestones($ua, $urlbase, $product)->@*;
-my $id         = 0;
-my @unedited   = map {
-  join(" ",
-    sprintf("%.4x", $id++),
-    $_->{active} ? '[x]' : '[_]',
-    $_->{bugs}, $_->{milestone},)
-} @milestones;
-my @edited = Proc::InvokeEditor->edit(\@unedited, '.txt');
+  my @milestones = get_milestones($ua, $urlbase, $product)->@*;
+  my $id         = 0;
+  my @unedited   = map {
+    join(" ",
+      sprintf("%.4x", $id++),
+      $_->{active} ? '[x]' : '[_]',
+      $_->{bugs}, $_->{milestone},)
+  } @milestones;
+  my @edited = Proc::InvokeEditor->edit(\@unedited, '.txt');
 
-my $unedited_ids = set(map {/^([[:xdigit:]]{4})/} @unedited);
-my $edited_ids   = set(map {/^([[:xdigit:]]{4})/} @edited);
+  my $unedited_ids = set(map {/^([[:xdigit:]]{4})/} @unedited);
+  my $edited_ids   = set(map {/^([[:xdigit:]]{4})/} @edited);
 
-my @to_delete = map { hex($_) } ($unedited_ids - $edited_ids)->members;
+  my @to_delete = map { hex($_) } ($unedited_ids - $edited_ids)->members;
 
-say "Going to remove:\n\t",
-  join("\n\t", map { $_->{milestone} } @milestones[@to_delete]);
+  say "Going to remove:\n\t",
+    join("\n\t", map { $_->{milestone} } @milestones[@to_delete]);
 }
 
-sub extract_href($urlbase, $dom) {
+sub extract_href ($urlbase, $dom) {
   my $link = $dom->at('a[href]');
   if ($link) {
     my $url = Mojo::URL->new(html_attr_unescape $link->attr('href'));
@@ -70,7 +70,7 @@ sub delete_milestone ($ua, $url) {
   my $dom     = $resp->dom;
   my $product = $url->query->param('product');
   check_title($dom, qq{Delete Milestone of Product '$product'});
-  
+
   my $form = $dom->at('form[action*="/editmilestones.cgi"]') or die "cannot find form";
   my $action = html_attr_unescape $form->attr('action');
   my %form_data = $form->find('input[type="hidden"]')
@@ -86,7 +86,8 @@ sub delete_milestone ($ua, $url) {
 sub check_title ($dom, $expected_title) {
   my $title = trim($dom->at('title')->text);
   $title =~ s/\s+/ /gs;
-  die "Unexpected title: $title, expected $expected_title" unless $title eq $expected_title;
+  die "Unexpected title: $title, expected $expected_title"
+    unless $title eq $expected_title;
 }
 
 sub get_milestones ($ua, $urlbase, $product) {
@@ -120,7 +121,7 @@ sub get_milestones ($ua, $urlbase, $product) {
         $result{delete_url} = extract_href($urlbase, $action);
       }
       if (my $edit = delete $result{"edit-milestone"}) {
-        $result{edit_url}  = extract_href($urlbase, $edit);
+        $result{edit_url} = extract_href($urlbase, $edit);
         $result{milestone} = $result{edit_url}->query->param('milestone');
       }
       return undef if all { not defined } values %result;

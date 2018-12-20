@@ -4,6 +4,7 @@ use experimental 'signatures';
 use File::Basename qw(dirname);
 use Cwd qw(realpath);
 use File::Spec::Functions qw(catdir);
+
 BEGIN {
   require lib;
   lib->import(catdir(dirname(realpath(__FILE__)), 'local', 'lib', 'perl5'));
@@ -17,6 +18,8 @@ use Mojo::URL;
 use List::Util qw(all);
 use Proc::InvokeEditor;
 use Set::Object qw(set);
+use Term::ProgressBar;
+use Data::Printer;
 
 my $ua      = Mojo::UserAgent->new();
 my $file    = path("config.json");
@@ -38,7 +41,6 @@ $ua->cookie_jar->add(
   } keys %$cookies
 );
 
-
 getopt 'product=s' => \my $product;
 
 if (1) {
@@ -48,7 +50,9 @@ if (1) {
     join(" ",
       sprintf("%.4x", $id++),
       $_->{active} ? '[x]' : '[_]',
-      $_->{bugs}, $_->{milestone},)
+      $_->{bugs},
+      $_->{value}
+    )
   } @milestones;
   my @edited = Proc::InvokeEditor->edit(\@unedited, '.txt');
 
@@ -57,20 +61,87 @@ if (1) {
 
   my @to_delete = map { hex($_) } ($unedited_ids - $edited_ids)->members;
 
-  say "Going to remove:\n\t",
-    join("\n\t", map { $_->{milestone} } @milestones[@to_delete]);
+  warn "nothing to delete\n" unless @to_delete;
+  {
+    my $max = @to_delete;
+    my $progress = Term::ProgressBar->new(
+      {name => 'Delete', count => $max, remove => 1, ETA => 'linear'});
+    my $next_update = 0;
+    foreach my $milestone (@milestones[@to_delete]) {
+      if ($milestone->{bugs}) {
+        warn "Cannot delete $milestone->{value} because it has bugs\n";
+        next;
+      }
+      delete_milestone($ua, $milestone->{delete_url}) if $milestone->{delete_url};
+      $next_update = $progress->update($_) if $_ >= $next_update;
+    }
+    $progress->update($max) if $max >= $next_update;
+  }
+
+  # find renames and active/inactive status
+  my %checkbox_to_bool = ('[x]' => 1, '[_]' => 0);
+  foreach my $edit (@edited) {
+    my ($id, $checkbox, $bugs, $value) = split(/\s+/, $edit, 4);
+    my $active = $checkbox_to_bool{$checkbox};
+    my $milestone = $milestones[ hex($id) ];
+    die "No milestone with id $id" unless defined $milestone;
+    die "invalid checkbox value: $checkbox" unless defined $active;
+
+    my %update;
+    if (trim($milestone->{value}) ne trim($value)) {
+      $update{milestone} = $value;
+    }
+    if ($milestone->{active} xor $active) {
+      $update{isactive} = $active;
+    }
+    if (keys %update && $milestone->{edit_url}) {
+      if ($milestone->{bugs}) {
+        warn "Cannot edit $milestone->{value}, because it has bugs associated.\n";
+        next;
+      }
+      edit_milestone($ua, $milestone->{edit_url}, \%update);
+    }
+  }
+
 }
 
 sub extract_href ($urlbase, $dom) {
   my $link = $dom->at('a[href]');
   if ($link) {
     my $url = Mojo::URL->new(html_attr_unescape $link->attr('href'));
-    $url->host('bugzilla.mozilla.org');
+    $url->host($urlbase->host);
     $url->scheme('https');
   }
   else {
     return undef;
   }
+}
+
+sub edit_milestone ($ua, $url, $update) {
+  my $resp      = $ua->get($url)->result;
+  my $dom       = $resp->dom;
+  my $product   = $url->query->param('product');
+  my $milestone = $url->query->param('milestone');
+  check_title($dom, qq{Edit Milestone '$milestone' of product '$product'});
+
+  my $form = $dom->at('form[action*="/editmilestones.cgi"]') or die "cannot find form";
+  my %input = ( extract_inputs($form->find('input'))->@*, %$update );
+
+  my $action = html_attr_unescape $form->attr('action');
+  my $form_url = $url->clone;
+  $form_url->path($action);
+  $form_url->query(Mojo::Parameters->new);
+
+  my $post_resp = $ua->post($form_url, form => \%input)->result;
+  my $post_dom = $post_resp->dom;
+  check_title($post_dom, 'Milestone Updated');
+}
+
+sub extract_inputs ($dom) {
+  return $dom->grep(sub($input) {
+    $input->attr('name')
+      && $input->attr('type') eq 'checkbox' ? $input->attr('checked') : 1;
+  })->map(sub ($input) { $input->attr('name'), $input->attr('value') })->to_array;
 }
 
 sub delete_milestone ($ua, $url) {
@@ -79,14 +150,14 @@ sub delete_milestone ($ua, $url) {
   my $product = $url->query->param('product');
   check_title($dom, qq{Delete Milestone of Product '$product'});
 
-  my $form = $dom->at('form[action*="/editmilestones.cgi"]') or die "cannot find form";
+  my $form   = $dom->at('form[action*="/editmilestones.cgi"]') or die "cannot find form";
   my $action = html_attr_unescape $form->attr('action');
-  my %form_data = $form->find('input[type="hidden"]')
-    ->map(sub ($input) { $input->attr('name'), $input->attr('value') })->to_array->@*;
-  $url->path($action);
-  $url->query(Mojo::Parameters->new);
+  my %input  = extract_inputs($form->find('input[type="hidden"]'))->@*;
+  my $confirm_url = $url->clone;
+  $confirm_url->path($action);
+  $confirm_url->query(Mojo::Parameters->new);
 
-  my $post_resp = $ua->post($url, form => \%form_data)->result;
+  my $post_resp = $ua->post($confirm_url, form => \%input)->result;
   my $post_dom = $post_resp->dom;
   check_title($post_dom, 'Milestone Deleted');
 }
@@ -130,7 +201,7 @@ sub get_milestones ($ua, $urlbase, $product) {
       }
       if (my $edit = delete $result{"edit-milestone"}) {
         $result{edit_url} = extract_href($urlbase, $edit);
-        $result{milestone} = $result{edit_url}->query->param('milestone');
+        $result{value} = $result{edit_url}->query->param('milestone');
       }
       return undef if all { not defined } values %result;
       return \%result;

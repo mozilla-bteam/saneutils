@@ -11,15 +11,15 @@ use Mojo::Util qw(sha1_sum);
 use Set::Object;
 use BMO::Editor::Item;
 
-requires '_encode', '_decode';
+requires 'header', '_encode', '_decode';
 
 has ids       => sub { Set::Object->new };
 has checksums => sub { {} };
 
 sub encode ($self, $content) {
   my $id = $self->ids->size;
-  my $line = $self->_encode($id, $self->_clean($content));
-  $self->checksums->{$id} = sha1_sum($line);
+  my $line = $self->_encode($id, $content);
+  $self->checksums->{$id} = sha1_sum($self->_encode($id, $self->_clean($content)));
   $self->ids->insert($id);
   return $line;
 }
@@ -37,6 +37,6 @@ sub decode ($self, $line) {
   return $item;
 }
 
-sub _clean($self, $content) {$self->_decode($self->_encode(0, $content))->content }
+sub _clean($self, $content) {$self->_decode($self->_encode(1, $content))->content }
 
 1;

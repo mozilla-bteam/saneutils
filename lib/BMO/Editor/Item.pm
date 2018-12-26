@@ -5,10 +5,9 @@
 # This Source Code Form is "Incompatible With Secondary Licenses", as
 # defined by the Mozilla Public License, v. 2.0.
 
-package BMO::Editor::Item {
-  use Mojo::Base -base, -signatures;
+package BMO::Editor::Item;
+use Mojo::Base -base, -signatures;
 
-  has [qw[id content is_new is_modified]];
-}
+has [qw[id content is_new is_modified]];
 
 1;

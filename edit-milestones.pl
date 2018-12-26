@@ -28,6 +28,9 @@ my $editor     = BMO::Editor->new();
 my $milestones = $tool->get_milestones($product);
 my ($items, $removed) = $editor->edit('Milestone', $milestones);
 
+my $modified = $items->grep('is_modified')->first;
+p $modified;
+
 # $removed->with_roles('+ProgressBar')->each(
 #   sub {
 #     if ($_->content->{bugs}) {

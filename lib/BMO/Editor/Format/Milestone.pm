@@ -20,7 +20,7 @@ package BMO::Editor::Format::Milestone {
     my $line = sprintf('id:%.4x %5d %-25s %s (%5d bugs)',
       $id, $content->{sortkey}, $content->{value},
                        $content->{active} ? '[x]' : '[_]',
-                       $content->{bugs});
+                       $content->{bugs} // 0);
     return $line;
   }
 

@@ -1,7 +1,10 @@
-requires 'Mojolicious';
-requires 'Set::Object';
-requires 'perl', '5.28.0';
-requires 'Proc::InvokeEditor';
-requires 'List::Util';
-requires 'Term::ProgressBar';
 requires 'Data::Printer';
+requires 'IO::Socket::SSL';
+requires 'List::Util';
+requires 'Mojolicious';
+requires 'Proc::InvokeEditor';
+requires 'Role::Tiny';
+requires 'Set::Object';
+requires 'Term::ProgressBar';
+requires 'curry';
+requires 'perl', '5.28.0';

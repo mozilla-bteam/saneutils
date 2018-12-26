@@ -1,7 +1,7 @@
 -pbp     # Start with Perl Best Practices
 -w       # Show all warnings
 -iob     # Ignore old breakpoints
--l=88    # 80 characters per line
+-l=80    # 80 characters per line
 -vmll
 -ibc
 -iscl

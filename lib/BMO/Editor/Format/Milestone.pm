@@ -37,8 +37,8 @@ sub _decode ($self, $line) {
       content => {sortkey => $sortkey, active => $active, value => $value},
     );
   }
-  elsif ($line =~ /^\s*\((\d+)\)\s+(.+?)\s+\[([_x])\]/) {
-    my ($sortkey, $checkbox, $value) = @{^CAPTURE};
+  elsif ($line =~ /^\s*(\d+)\s+(.+?)\s+\[([_x])\]/) {
+    my ($sortkey, $value, $checkbox) = @{^CAPTURE};
     my $active = $self->checkbox_value->{$checkbox};
     die "Bad checkbox: $checkbox" unless defined $active;
 

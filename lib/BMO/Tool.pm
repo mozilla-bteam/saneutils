@@ -13,6 +13,9 @@ use List::Util qw(none);
 use Mojo::UserAgent;
 use Mojo::Util qw(slugify trim html_attr_unescape);
 use Mojo::Cookie::Response;
+use Mojo::Collection qw(c);
+use POSIX qw(ceil);
+use curry;
 
 my $CONFIG_FILE = path($ENV{BMO_TOOL_CONFIG} // "config.json");
 my $URLBASE     = 'https://bugzilla.allizom.org';
@@ -49,8 +52,8 @@ sub browse ($self, $cb) {
 }
 
 sub click_link($self, $dom, $text) {
-  my $link = $dom->find_links($text)->first or die "Cannot find '$text'";
-  return $self->browse(sub { $_->get($self->url($link))});
+  my $link = $dom->find_links('a[href*="/buglist.cgi"]', $text)->first;
+  return $link ? $self->browse(sub { $_->get($self->url($link))}) : undef;
 }
 
 sub post_form($self, $form, $cb) {
@@ -169,19 +172,38 @@ sub get_versions ($self, $product) {
   })->compact;
 }
 
-sub _add_limit ($url, $n) {
-  $url->clone->tap(sub { $_->query->merge(limit => $n) });
+sub remap_milestones ($self, $product, $milestone, $name) {
+  my $limit = 10;
+  my $url = $self->url('buglist.cgi')
+    ->query(product => $product, target_milestone => $milestone->{value});
+  my $f = sub($input) {
+    $input->{target_milestone} = $name;
+  };
+  my $loop = c(1 .. ceil($milestone->{bugs} / $limit));
+  $self->add_milestone($product, $name, $milestone->{sortkey});
+  $loop->with_roles('+ProgressBar')
+    ->each(sub { $self->edit_bugs($url, $limit, $f) }, "Fix milestone on $milestone->{bugs} bugs");
+  $self->delete_milestone($product, $milestone->{value});
 }
 
-sub edit_bugs ($self, $url, $cb) {
-  my $dom = $self->browse(sub { $_->get(_add_limit($url, 10)) })->check_title('Bug List');
-  my $dom2 = $self->click_link($dom, 'change several bugs at once')->check_title('Bug List');
-  my $form = $dom2->at('form[action="/process_bug.cgi"]');
+sub edit_bugs ($self, $url, $limit, $cb) {
+  my $dom = $self->browse(sub { $_->get(_add_limit($url, $limit)) })->check_title('Bug List');
+  my $dom2 = $self->click_link($dom, 'change several bugs at once') or return undef;
+  my $form = $dom2->check_title('Bug List')->at('form[action="/process_bug.cgi"]');
   my $ids
     = $form->find('input[type="checkbox"][name^="id_"]')->map('attr', 'name');
-  my $input = $form->extract_inputs;
-  $ids->each(sub { $input->{$_} = 1 });
-  $cb->($input);
+  my $post_dom = $self->post_form(
+    $form,
+    sub ($input) {
+      $ids->each(sub { $input->{$_} = 1 });
+      $cb->($input);
+    }
+  );
+  return $post_dom->check_throw_error();
+}
+
+sub _add_limit ($url, $n) {
+ $url->clone->tap(sub { $_->query->merge(limit => $n) });
 }
 
 1;

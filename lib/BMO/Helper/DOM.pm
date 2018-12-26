@@ -30,6 +30,15 @@ sub check_error_table ($dom) {
   return $dom;
 }
 
+sub check_throw_error ($dom) {
+  my $error = $dom->at('#error_msg.throw_error');
+  if ($error) {
+    my $msg = $error->all_text;
+    die $msg =~ s/\s+/ /grs;
+  }
+  return $dom;
+}
+
 sub extract_href ($dom, $urlbase) {
   my $link = $dom->at('a[href]');
   if ($link) {
@@ -61,10 +70,10 @@ sub extract_inputs ($dom) {
   return \%inputs;
 }
 
-sub find_links ($dom, $text) {
+sub find_links ($dom, $selector, $text) {
   my $slug = slugify($text);
-  $dom->find('a[href]')->grep(sub { slugify($_->all_text) eq $slug })->map(sub {
-    my $url = Mojo::URL->new(html_attr_unescape $_->attr('href'));
+  $dom->find($selector)->grep(sub { slugify($_->all_text) eq $slug })->map(sub {
+    return Mojo::URL->new(html_attr_unescape $_->attr('href'));
   });
 }
 

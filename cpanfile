@@ -8,3 +8,4 @@ requires 'Set::Object';
 requires 'Term::ProgressBar';
 requires 'curry';
 requires 'perl', '5.28.0';
+requires 'Syntax::Keyword::Try';

@@ -28,7 +28,7 @@ has config => sub($self) {
   return decode_json($config_file->slurp);
 };
 
-has ua      => sub($self) {
+has ua => sub($self) {
   my $ua      = Mojo::UserAgent->new();
   my $cookies = $self->config->{cookies}{$self->urlbase->host};
   $ua->cookie_jar->ignore(sub {0});
@@ -60,13 +60,13 @@ sub browse ($self, $cb) {
   return $dom;
 }
 
-sub click_link($self, $dom, $text) {
+sub click_link ($self, $dom, $text) {
   my $link = $dom->find_links('a[href*="/buglist.cgi"]', $text)->first;
-  return $link ? $self->browse(sub { $_->get($self->url($link))}) : undef;
+  return $link ? $self->browse(sub { $_->get($self->url($link)) }) : undef;
 }
 
-sub post_form($self, $form, $cb) {
-  die "No form!" unless defined $form;
+sub post_form ($self, $form, $cb) {
+  die "No form!"   unless defined $form;
   die "Not a form" unless $form->tag eq 'form';
   my $action   = html_attr_unescape $form->attr('action');
   my $post_url = $self->url($action);
@@ -84,7 +84,7 @@ sub add_milestone ($self, $product, $milestone, $sortkey) {
   my $title = qq{Add Milestone to Product '$product'};
   my $dom   = $self->browse(sub { $_->get($url) })->check_title($title);
   my $form  = $dom->at('form[action="/editmilestones.cgi"]');
-  my $dom2 = $self->post_form(
+  my $dom2  = $self->post_form(
     $form,
     sub {
       $_->{milestone} = $milestone;
@@ -110,25 +110,26 @@ sub delete_milestone ($self, $product, $milestone) {
   my $dom   = $self->browse(sub { $_->get($url) })->check_title($title)
     ->check_error_table();
   my $form = $dom->at('form[action="/editmilestones.cgi"]');
-  my $dom2  = $self->post_form($form, sub { })->check_title('Milestone Deleted');
+  my $dom2 = $self->post_form($form, sub { })->check_title('Milestone Deleted');
   $self->_milestones->{$product} //= set();
   $self->_milestones->{$product}->remove($milestone);
 }
 
-sub edit_milestone($self, $product, $milestone, $cb) {
+sub edit_milestone ($self, $product, $milestone, $cb) {
   my %query = (product => $product, milestone => $milestone, action => 'edit');
   my $url   = $self->url('editmilestones.cgi')->query(%query);
   my $title = qq{Edit Milestone '$milestone' of product '$product'};
-  my $dom   = $self->browse( sub { $_->get($url) })->check_title($title);
-  my $form = $dom->at('form[action="/editmilestones.cgi"]');
-  return $self->post_form($form, sub { $_->{milestone} = $milestone; $cb->(@_); })->check_title('Milestone Updated');
+  my $dom   = $self->browse(sub { $_->get($url) })->check_title($title);
+  my $form  = $dom->at('form[action="/editmilestones.cgi"]');
+  return $self->post_form($form, sub { $_->{milestone} = $milestone; $cb->(@_); })
+    ->check_title('Milestone Updated');
 }
 
 sub get_milestones ($self, $product) {
   my $url = $self->url('editmilestones.cgi')
     ->query(product => $product, showbugcounts => 1);
   my $title  = qq{Select milestone of product '$product'};
-  my $dom    = $self->browse( sub { $_->get($url) })->check_title($title);
+  my $dom    = $self->browse(sub { $_->get($url) })->check_title($title);
   my $header = $dom->find("#admin_table tr[bgcolor='#6666FF'] th")
     ->map(sub($th) { slugify($th->text) })->to_array;
   my $milestones = $dom->find('#admin_table tr')->map(sub($tr) {
@@ -151,7 +152,7 @@ sub get_milestones ($self, $product) {
       }
       if (my $edit = delete $result{"edit-milestone"}) {
         my $edit_url = $edit->extract_href($self->urlbase);
-        $result{value}    = html_attr_unescape $edit_url->query->param('milestone');
+        $result{value} = html_attr_unescape $edit_url->query->param('milestone');
       }
       return undef if none { defined $_ } values %result;
       return \%result;
@@ -171,7 +172,7 @@ sub get_versions ($self, $product) {
   my $url = $self->url('editversions.cgi')
     ->query(product => $product, showbugcounts => 1);
   my $title  = qq{Select version of product '$product'};
-  my $dom    = $self->browse( sub { $_->get($url) })->check_title($title);
+  my $dom    = $self->browse(sub { $_->get($url) })->check_title($title);
   my $header = $dom->find("#admin_table tr[bgcolor='#6666FF'] th")
     ->map(sub($th) { slugify($th->text) })->to_array;
 
@@ -192,7 +193,7 @@ sub get_versions ($self, $product) {
       }
       if (my $edit = delete $result{"edit-version"}) {
         my $edit_url = $edit->extract_href($self->urlbase);
-        $result{value}    = html_attr_unescape $edit_url->query->param('version');
+        $result{value} = html_attr_unescape $edit_url->query->param('version');
       }
       return \%result;
     }
@@ -201,7 +202,7 @@ sub get_versions ($self, $product) {
 
 sub move_milestones ($self, $product, $milestone, $name) {
   my $limit = 10;
-  my $url = $self->url('buglist.cgi')
+  my $url   = $self->url('buglist.cgi')
     ->query(product => $product, target_milestone => $milestone->{value});
   my $f = sub($input) {
     $input->{target_milestone} = $name;
@@ -209,12 +210,14 @@ sub move_milestones ($self, $product, $milestone, $name) {
   my $loop = c(1 .. ceil($milestone->{bugs} / $limit));
   $self->add_milestone($product, $name, $milestone->{sortkey});
   $loop->with_roles('+ProgressBar')
-    ->each(sub { $self->edit_bugs($url, $limit, $f)->at('main') }, "Fix milestone on $milestone->{bugs} bugs");
+    ->each(sub { $self->edit_bugs($url, $limit, $f)->at('main') },
+    "Fix milestone on $milestone->{bugs} bugs");
   $self->delete_milestone($product, $milestone->{value});
 }
 
 sub edit_bugs ($self, $url, $limit, $cb) {
-  my $dom = $self->browse(sub { $_->get(_tweak_url($url, $limit)) })->check_title('Bug List');
+  my $dom = $self->browse(sub { $_->get(_tweak_url($url, $limit)) })
+    ->check_title('Bug List');
   my $form = $dom->check_title('Bug List')->at('form[action="/process_bug.cgi"]');
   my $ids
     = $form->find('input[type="checkbox"][name^="id_"]')->map('attr', 'name');
@@ -229,7 +232,7 @@ sub edit_bugs ($self, $url, $limit, $cb) {
 }
 
 sub _tweak_url ($url, $n) {
- $url->clone->tap(sub { $_->query->merge(limit => $n, tweak => 1) });
+  $url->clone->tap(sub { $_->query->merge(limit => $n, tweak => 1) });
 }
 
 1;

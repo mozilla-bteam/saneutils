@@ -19,17 +19,19 @@ has checksums => sub { {} };
 sub encode ($self, $content) {
   my $id = $self->ids->size;
   my $line = $self->_encode($id, $content);
-  $self->checksums->{$id} = sha1_sum($self->_encode($id, $self->_clean($content)));
+  $self->checksums->{$id}
+    = sha1_sum($self->_encode($id, $self->_clean($content)));
   $self->ids->insert($id);
   return $line;
 }
 
 sub decode ($self, $line) {
   my $item = $self->_decode($line) or return undef;
-  my $id   = $item->id;
+  my $id = $item->id;
   if (defined $id) {
     die "Unknown id: $id" unless $self->ids->contains($id);
-    $item->is_modified($self->checksums->{$id} ne sha1_sum( $self->_encode($item->id, $item->content) ));
+    $item->is_modified(
+      $self->checksums->{$id} ne sha1_sum($self->_encode($item->id, $item->content)));
   }
   else {
     $item->is_new(1);
@@ -37,6 +39,8 @@ sub decode ($self, $line) {
   return $item;
 }
 
-sub _clean($self, $content) {$self->_decode($self->_encode(1, $content))->content }
+sub _clean ($self, $content) {
+  $self->_decode($self->_encode(1, $content))->content;
+}
 
 1;

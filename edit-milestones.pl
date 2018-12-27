@@ -39,7 +39,7 @@ $new->with_roles('+ProgressBar')->each(
     unless ($new->{active}) {
       $tool->edit_milestone($product, $new->{value}, sub { $_->{isactive} = 0 });
     }
-  }
+  }, 'Add Milestones'
 );
 
 $modified->with_roles('+ProgressBar')->each(
@@ -76,7 +76,6 @@ $modified->with_roles('+ProgressBar')->each(
     }
   }, 'Update Milestones'
 );
-say "Done.";
 $removed->with_roles('+ProgressBar')->each(
   sub ($item, $i) {
     if ($item->content->{bugs}) {
@@ -86,4 +85,3 @@ $removed->with_roles('+ProgressBar')->each(
     $tool->delete_milestone($product, $item->content->{value});
   }, 'Remove Milestones'
 );
-say "Done.";

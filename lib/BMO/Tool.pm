@@ -235,6 +235,21 @@ sub edit_version ($self, $product, $version, $cb) {
   return $self->post_form($form, $cb)->check_title('Version Updated');
 }
 
+sub move_versions ($self, $product, $version, $name) {
+  my $limit = 10;
+  my $url   = $self->url('buglist.cgi')
+    ->query(product => $product, version => $version->{value});
+  my $f = sub($input) {
+    $input->{version} = $name;
+  };
+  my $loop = c(1 .. ceil($version->{bugs} / $limit));
+  $self->add_version($product, $name);
+  $loop->with_roles('+ProgressBar')
+    ->each(sub { $self->edit_bugs($url, $limit, $f) },
+    "Fix version on $version->{bugs} bugs");
+  $self->delete_version($product, $version->{value});
+}
+
 sub get_versions ($self, $product) {
   my $url      = $self->_versions_url($product, 'list');
   my $title    = qq{Select version of product '$product'};

@@ -9,5 +9,6 @@ RUN carton install
 
 COPY lib/ /app/lib/
 COPY edit-milestones.pl /app
+COPY edit-versions.pl /app
 
 CMD /bin/bash

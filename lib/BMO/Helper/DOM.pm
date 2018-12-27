@@ -70,6 +70,22 @@ sub extract_inputs ($dom) {
   return \%inputs;
 }
 
+sub extract_admin_table($dom) {
+  my $sel    = '#admin_table tr[bgcolor="#6666FF"] th';
+  my @header = $dom->find($sel)->map('text')->map(\&slugify)->@*;
+
+  return $dom->find('#admin_table tr:not([bgcolor])')->map(sub($tr) {
+    if (my $cells = $tr->find('td')) {
+      my %result;
+      @result{@header} = $cells->to_array->@*;
+      return \%result;
+    }
+    else {
+      return undef;
+    }
+  })->compact;
+}
+
 sub find_links ($dom, $selector, $text) {
   my $slug = slugify($text);
   $dom->find($selector)->grep(sub { slugify($_->all_text) eq $slug })->map(sub {

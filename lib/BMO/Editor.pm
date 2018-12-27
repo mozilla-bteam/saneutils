@@ -31,7 +31,7 @@ sub edit ($self, $name, $c) {
 }
 
 sub _default_invoke_editor($lines) {
-  c(Proc::InvokeEditor->edit($lines));
+  c(Proc::InvokeEditor->edit($lines, '.conf'));
 }
 
 sub new_format ($self, $name) {

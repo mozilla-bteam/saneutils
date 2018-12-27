@@ -22,7 +22,8 @@ use Mojo::UserAgent;
 use Mojo::Util qw(getopt trim slugify html_attr_unescape);
 use Set::Object qw(set);
 
-getopt 'product=s' => \my $product;
+getopt 'product=s' => \my $product,
+       'urlbase=s' => \$ENV{BMO_URLBASE};
 
 my $tool       = BMO::Tool->new;
 my $editor     = BMO::Editor->new();

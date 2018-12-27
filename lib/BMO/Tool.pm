@@ -18,11 +18,16 @@ use POSIX qw(ceil);
 use Set::Object qw(set);
 use curry;
 
-my $CONFIG_FILE = path($ENV{BMO_TOOL_CONFIG} // "config.json");
-my $URLBASE     = 'https://bugzilla.allizom.org';
+has urlbase => sub {
+  my $urlbase = $ENV{BMO_URLBASE} // 'https://bugzilla.allizom.org';
+  return Mojo::URL->new($urlbase);
+};
 
-has urlbase => sub        { Mojo::URL->new($URLBASE) };
-has config  => sub($self) { decode_json($CONFIG_FILE->slurp) };
+has config => sub($self) {
+  my $config_file = path($ENV{BMO_TOOL_CONFIG} // "config.json");
+  return decode_json($config_file->slurp);
+};
+
 has ua      => sub($self) {
   my $ua      = Mojo::UserAgent->new();
   my $cookies = $self->config->{cookies}{$self->urlbase->host};
@@ -40,6 +45,7 @@ has ua      => sub($self) {
     } keys %$cookies
   );
   $ua->max_redirects(2);
+  $ua->transactor->name('BMO::Tool (owner: dylan@mozilla.com)');
   return $ua;
 };
 
@@ -202,9 +208,8 @@ sub move_milestones ($self, $product, $milestone, $name) {
   };
   my $loop = c(1 .. ceil($milestone->{bugs} / $limit));
   $self->add_milestone($product, $name, $milestone->{sortkey});
-  say "loop: ", $loop->join(", ");
   $loop->with_roles('+ProgressBar')
-    ->each(sub { $self->edit_bugs($url, $limit, $f)->at('main')->tap(sub { say $_ }) }, "Fix milestone on $milestone->{bugs} bugs");
+    ->each(sub { $self->edit_bugs($url, $limit, $f)->at('main') }, "Fix milestone on $milestone->{bugs} bugs");
   $self->delete_milestone($product, $milestone->{value});
 }
 

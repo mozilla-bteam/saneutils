@@ -12,6 +12,7 @@ use Term::ProgressBar;
 requires 'each', 'size';
 
 around each => sub ($each, $self, $cb, $label = undef) {
+  return unless $self->size;
   my $next_update = 0;
   my $progress    = Term::ProgressBar->new(
     {name => $label, count => $self->size, remove => 1, ETA => 'linear'});
@@ -23,6 +24,7 @@ around each => sub ($each, $self, $cb, $label = undef) {
       $next_update = $progress->update($i) if $i >= $next_update;
     }
   );
+  $progress->update($self->size);
 };
 
 1;

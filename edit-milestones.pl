@@ -20,6 +20,7 @@ use Mojo::JSON qw(decode_json);
 use Mojo::URL;
 use Mojo::UserAgent;
 use Mojo::Util qw(getopt trim slugify html_attr_unescape);
+use Set::Object qw(set);
 
 getopt 'product=s' => \my $product;
 
@@ -46,7 +47,9 @@ $modified->with_roles('+ProgressBar')->each(
     my $new = $item->content;
     my %update;
     if ($old->{value} ne $new->{value} && $old->{bugs}) {
-      $tool->remap_milestones($product, $old, $new->{value});
+      $tool->add_milestone($product, $new->{value}, $old->{sortkey});
+      $tool->move_milestones($product, $old, $new->{value});
+      $tool->delete_milestone($product, $old->{value});
       $old->{value} = $new->{value};
       $old->{active} = 1;
     }

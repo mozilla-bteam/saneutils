@@ -7,14 +7,15 @@
 
 package BMO::Tool;
 use Mojo::Base -base, -signatures;
+use List::Util qw(none);
+use Mojo::Collection qw(c);
+use Mojo::Cookie::Response;
 use Mojo::File qw(path);
 use Mojo::JSON qw(decode_json);
-use List::Util qw(none);
 use Mojo::UserAgent;
 use Mojo::Util qw(slugify trim html_attr_unescape);
-use Mojo::Cookie::Response;
-use Mojo::Collection qw(c);
 use POSIX qw(ceil);
+use Set::Object qw(set);
 use curry;
 
 my $CONFIG_FILE = path($ENV{BMO_TOOL_CONFIG} // "config.json");
@@ -42,6 +43,8 @@ has ua      => sub($self) {
   return $ua;
 };
 
+has _milestones => sub { +{} };
+
 sub url ($self, $path) { $self->urlbase->clone->path_query($path) }
 
 sub browse ($self, $cb) {
@@ -68,6 +71,8 @@ sub post_form($self, $form, $cb) {
 }
 
 sub add_milestone ($self, $product, $milestone, $sortkey) {
+  return if $self->has_milestone($product, $milestone);
+
   my $url = $self->url('editmilestones.cgi')
     ->query(product => $product, action => 'add');
   my $title = qq{Add Milestone to Product '$product'};
@@ -80,16 +85,28 @@ sub add_milestone ($self, $product, $milestone, $sortkey) {
       $_->{sortkey}   = $sortkey;
     }
   )->check_title('Milestone Created');
+  $self->_milestones->{$product} //= set();
+  $self->_milestones->{$product}->insert($milestone);
+  return $dom2;
+}
+
+sub has_milestone ($self, $product, $milestone) {
+  my $set = $self->_milestones->{$product} or return 0;
+  return $set->contains($milestone);
 }
 
 sub delete_milestone ($self, $product, $milestone) {
+  return unless $self->has_milestone($product, $milestone);
+
   my %query = (product => $product, milestone => $milestone, action => 'del');
   my $url   = $self->url('editmilestones.cgi')->query(%query);
   my $title = qq{Delete Milestone of Product '$product'};
   my $dom   = $self->browse(sub { $_->get($url) })->check_title($title)
     ->check_error_table();
   my $form = $dom->at('form[action="/editmilestones.cgi"]');
-  return $self->post_form($form, sub { })->check_title('Milestone Deleted');
+  my $dom2  = $self->post_form($form, sub { })->check_title('Milestone Deleted');
+  $self->_milestones->{$product} //= set();
+  $self->_milestones->{$product}->remove($milestone);
 }
 
 sub edit_milestone($self, $product, $milestone, $cb) {
@@ -108,8 +125,7 @@ sub get_milestones ($self, $product) {
   my $dom    = $self->browse( sub { $_->get($url) })->check_title($title);
   my $header = $dom->find("#admin_table tr[bgcolor='#6666FF'] th")
     ->map(sub($th) { slugify($th->text) })->to_array;
-
-  return $dom->find('#admin_table tr')->map(sub($tr) {
+  my $milestones = $dom->find('#admin_table tr')->map(sub($tr) {
     my $cells = $tr->find('td');
     if ($cells) {
       my %result;
@@ -138,6 +154,11 @@ sub get_milestones ($self, $product) {
       return undef;
     }
   })->compact;
+
+  my $set = set($milestones->map(sub { $_->{value} })->to_array->@*);
+  $self->_milestones->{$product} = $set;
+
+  return $milestones;
 }
 
 sub get_versions ($self, $product) {
@@ -172,7 +193,7 @@ sub get_versions ($self, $product) {
   })->compact;
 }
 
-sub remap_milestones ($self, $product, $milestone, $name) {
+sub move_milestones ($self, $product, $milestone, $name) {
   my $limit = 10;
   my $url = $self->url('buglist.cgi')
     ->query(product => $product, target_milestone => $milestone->{value});
@@ -181,15 +202,15 @@ sub remap_milestones ($self, $product, $milestone, $name) {
   };
   my $loop = c(1 .. ceil($milestone->{bugs} / $limit));
   $self->add_milestone($product, $name, $milestone->{sortkey});
+  say "loop: ", $loop->join(", ");
   $loop->with_roles('+ProgressBar')
-    ->each(sub { $self->edit_bugs($url, $limit, $f) }, "Fix milestone on $milestone->{bugs} bugs");
+    ->each(sub { $self->edit_bugs($url, $limit, $f)->at('main')->tap(sub { say $_ }) }, "Fix milestone on $milestone->{bugs} bugs");
   $self->delete_milestone($product, $milestone->{value});
 }
 
 sub edit_bugs ($self, $url, $limit, $cb) {
-  my $dom = $self->browse(sub { $_->get(_add_limit($url, $limit)) })->check_title('Bug List');
-  my $dom2 = $self->click_link($dom, 'change several bugs at once') or return undef;
-  my $form = $dom2->check_title('Bug List')->at('form[action="/process_bug.cgi"]');
+  my $dom = $self->browse(sub { $_->get(_tweak_url($url, $limit)) })->check_title('Bug List');
+  my $form = $dom->check_title('Bug List')->at('form[action="/process_bug.cgi"]');
   my $ids
     = $form->find('input[type="checkbox"][name^="id_"]')->map('attr', 'name');
   my $post_dom = $self->post_form(
@@ -202,8 +223,8 @@ sub edit_bugs ($self, $url, $limit, $cb) {
   return $post_dom->check_throw_error();
 }
 
-sub _add_limit ($url, $n) {
- $url->clone->tap(sub { $_->query->merge(limit => $n) });
+sub _tweak_url ($url, $n) {
+ $url->clone->tap(sub { $_->query->merge(limit => $n, tweak => 1) });
 }
 
 1;

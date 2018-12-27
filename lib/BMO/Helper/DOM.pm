@@ -58,7 +58,7 @@ sub extract_inputs ($dom) {
   };
   my $hidden  = $dom->find('input[type="hidden"]')->map($extract);
   my $checked = $dom->find('input[type="checkbox"][checked]')->map($extract);
-  my $text    = $dom->find('input[type="text"]')->map($extract);
+  my $text    = $dom->find('input[type="text"], input:not([type])')->map($extract);
   my $select  = $dom->find('select[name]')->map(sub {
     my $option = $_->at('option[selected]');
     $option ? [$_->attr('name'), $option->attr('value')] : undef;

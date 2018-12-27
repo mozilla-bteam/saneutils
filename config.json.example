@@ -1,0 +1,16 @@
+{
+    "cookies": {
+        "bugzilla.allizom.org": {
+            "Bugzilla_logincookie": "XXXXXXXXXXXXXXXXXXXXXX",
+            "Bugzilla_login": 999999
+        },
+        "bugzilla.mozilla.org": {
+            "Bugzilla_logincookie": "XXXXXXXXXXXXXXXXXXXXXX",
+            "Bugzilla_login": 999999
+        },
+        "bugzilla-dev.allizom.org": {
+            "Bugzilla_logincookie": "XXXXXXXXXXXXXXXXXXXXXX",
+            "Bugzilla_login": 999999
+        }
+    }
+}

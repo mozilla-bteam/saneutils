@@ -1,3 +1,4 @@
+requires 'Class::Method::Modifiers';
 requires 'Data::Printer';
 requires 'IO::Socket::SSL';
 requires 'List::Util';
@@ -5,7 +6,7 @@ requires 'Mojolicious';
 requires 'Proc::InvokeEditor';
 requires 'Role::Tiny';
 requires 'Set::Object';
+requires 'Syntax::Keyword::Try';
 requires 'Term::ProgressBar';
 requires 'curry';
 requires 'perl', '5.28.0';
-requires 'Syntax::Keyword::Try';

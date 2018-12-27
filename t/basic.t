@@ -34,7 +34,7 @@ my $c = c(
 
 my $editor = BMO::Editor->new(
   invoke_editor => sub($lines) {
-    $lines->grep(sub { /^\s*id:0001/ })->map(sub { s/mozilla(\d+)/Firefox $1/grs });
+    c(split(/\n/, $lines))->grep(sub { /^\s*id:0001/ })->map(sub { s/mozilla(\d+)/Firefox $1/grs });
   },
 );
 my ($items, $removed) = $editor->edit('Milestone', $c);

@@ -82,3 +82,5 @@ $removed->with_roles('+ProgressBar')->each(
     $tool->delete_version($product, $item->content->{value});
   }, 'Remove Versions'
 );
+
+say "Requests made: ", $tool->browse_counter;

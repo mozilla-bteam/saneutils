@@ -50,6 +50,7 @@ has ua => sub($self) {
 
 has _milestones => sub { +{} };
 has _versions   => sub { +{} };
+has browse_counter => 0;
 
 sub url ($self, $path) { $self->urlbase->clone->path_query($path) }
 
@@ -57,6 +58,7 @@ sub browse ($self, $cb) {
   local $_ = $self->ua;
   my $resp = $cb->($self->ua)->result;
   my $dom  = $resp->dom->with_roles('BMO::Helper::DOM');
+  $self->browse_counter( $self->browse_counter + 1 );
   return $dom;
 }
 
@@ -279,12 +281,28 @@ sub get_versions ($self, $product) {
   return $versions;
 }
 
+sub add_keywords ($self, $bugs, $keywords) {
+  my $limit = 10;
+  my $loop  = c(1 .. ceil(0 + @$bugs / $limit));
+  my $url   = $self->url('buglist.cgi')->query(quicksearch => 'ALL bug_id='.join(",", @$bugs));
+  $loop->with_roles('+ProgressBar')->each(sub {
+    $self->edit_bugs(
+      $url, $limit,
+      sub($input) {
+        $input->{keywords} = join(", ", @$keywords);
+      }
+    );
+  });
+}
+
 sub edit_bugs ($self, $url, $limit, $cb) {
-  my $dom = $self->browse(sub { $_->get(_tweak_url($url, $limit)) })
-    ->check_title('Bug List');
-  my $form = $dom->check_title('Bug List')->at('form[action="/process_bug.cgi"]');
-  my $ids
-    = $form->find('input[type="checkbox"][name^="id_"]')->map('attr', 'name');
+  my $dom = $self->browse(sub { $_->get(_tweak_url($url, $limit)) });
+  my $title = 'Bug List';
+  if (my $quicksearch = $url->query->param('quicksearch')) {
+    $title .= ": $quicksearch";
+  }
+  my $form = $dom->check_title($title)->at('form[action="/process_bug.cgi"]') or die "no form";
+  my $ids =  $form->find('input[type="checkbox"][name^="id_"]')->map('attr', 'name');
   my $post_dom = $self->post_form(
     $form,
     sub ($input) {

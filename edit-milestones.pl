@@ -85,3 +85,5 @@ $removed->with_roles('+ProgressBar')->each(
     $tool->delete_milestone($product, $item->content->{value});
   }, 'Remove Milestones'
 );
+
+say "Requests made: ", $tool->browse_counter;

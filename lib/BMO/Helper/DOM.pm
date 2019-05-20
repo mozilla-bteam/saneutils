@@ -71,10 +71,10 @@ sub extract_inputs ($dom) {
 }
 
 sub extract_admin_table($dom) {
-  my $sel    = '#admin_table tr[bgcolor="#6666FF"] th';
+  my $sel    = 'table.standard thead tr th';
   my @header = $dom->find($sel)->map('text')->map(\&slugify)->@*;
 
-  return $dom->find('#admin_table tr:not([bgcolor])')->map(sub($tr) {
+  return $dom->find('table.standard tbody tr')->map(sub($tr) {
     if (my $cells = $tr->find('td')) {
       my %result;
       @result{@header} = $cells->to_array->@*;
